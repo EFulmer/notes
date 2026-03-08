@@ -1,0 +1,121 @@
+% ============================================================
+%  Kubernetes Notes
+%  Compiled with pdfLaTeX (TeXShop on macOS)
+% ============================================================
+\documentclass[11pt, a4paper]{article}
+
+% --- Packages ---
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}           % cleaner fonts
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{parskip}           % space between paragraphs instead of indent
+\usepackage{hyperref}          % clickable links & TOC
+\usepackage{xcolor}            % colour support
+\usepackage{listings}          % code / YAML blocks
+\usepackage{booktabs}          % nicer tables
+\usepackage{enumitem}          % control over lists
+
+% --- hyperref setup ---
+\hypersetup{
+    colorlinks = true,
+    linkcolor  = blue!60!black,
+    urlcolor   = blue!60!black,
+    citecolor  = green!50!black,
+    pdftitle   = {Kubernetes Notes},
+    pdfauthor  = {},
+}
+
+% --- listings setup (for YAML / shell snippets) ---
+\lstdefinestyle{shell}{
+    backgroundcolor = \color{gray!10},
+    basicstyle      = \ttfamily\small,
+    breaklines      = true,
+    frame           = single,
+    framerule       = 0.4pt,
+    rulecolor       = \color{gray!50},
+    numbers         = none,
+    xleftmargin     = 6pt,
+    xrightmargin    = 6pt,
+}
+\lstset{style=shell}
+
+% ============================================================
+\begin{document}
+
+% --- Title block ---
+\begin{center}
+    {\LARGE \textbf{Kubernetes Notes}} \\[0.5em]
+    {\large Personal Reference} \\[0.3em]
+    {\small Last updated: \today}
+\end{center}
+
+\tableofcontents
+\bigskip
+\hrule
+\bigskip
+
+% ============================================================
+\section{Introduction}
+
+The purpose of this document is, obviously, my Kubernetes notes for myself. I am trying to avoid buzzwords and jargon, and explain both the \textit{hows} and \textit{whys} of Kubernetes. 
+
+That implies two basic questions worth answering before we go any further:
+
+\begin{itemize}
+\item What \textit{is} Kubernetes?
+\item Why does Kubernetes exist -- and why have so many people and organizations found it useful?
+\end{itemize}
+
+You'll often see Kubernetes described as "the operating system of the cloud." This is a buzzy way of describing it, but it is an accurate description. The different components of a Kubernetes cluster facilitate deploying applications in a cloud environment. That cloud may be public, like Amazon Web Services, or private, like your employer or school's server racks. 
+
+Software suited for running on a cloud should be durable and largely agnostic to what computer it runs on, aside from fundamental incompatibilities on the level of x86 vs. ARM processor architectures, Linux vs. Windows vs. macOS, and so on. As operating systems provide convenient interfaces to the physical computer programs run on, they (ideally!) remove a programmer's need to know the specific CPU, RAM, and networking details of the machine their code runs on. Kubernetes does the same one level up -- abstracting away individual servers, nodes, regions, and storage types, handling concerns like application self-healing, upgrades and rollbacks, and storage on the programmer's behalf. This may not be a perfect analogy, but none is. It is the springboard for understanding those \textit{hows} and \textit{whys}.
+
+Kubernetes was originally developed at Google, to make it easier for programmers to deploy and maintain programs at so-called "Google scale;" highly available, highly fault-tolerant systems. It is now owned and maintained by the Cloud Native Computing Foundation (CNCF). 
+
+% ============================================================
+\section{Components of a Kubernetes Cluster}
+
+A Kubernetes cluster consists of a \textbf{control plane node} (the "leader," "brain," or "head office" of the cluster) and one or more \textbf{worker nodes}. The control plane manages the desired state of the cluster; worker nodes run the actual workloads. Certain deployments, typically home lab or other sorts of non-production Kubernetes clusters, may run a single node which hosts both the control plane's components and runs workloads, but this is not advisable for production.
+
+\subsection{\texttt{etcd}}
+
+A core component of Kubernetes is the durable \texttt{etcd} database. \texttt{etcd} is a key-value database (as opposed to a relational/SQL database, or a document store like MongoDB) used by many other distributed systems. \texttt{etcd} is a Kubernetes cluster's "source of truth" for the \textit{desired cluster state}; a concept that is crucial to understanding and using Kubernetes. 
+
+Like most well-engineered pieces of software, access to the database is not a free-for-all affair. The Kubernetes API server is the intermediary between the \texttt{etcd} database and the outside world. The rest of this subsection discusses \texttt{etcd} and how Kubernetes uses it in greater depth; readers for whom this is not interesting or relevant can skip it. 
+
+High-availability Kubernetes servers may want to run multiple \texttt{etcd} instances; I will go into more detail on this later. Clusters using multiple \texttt{etcd}s use the \textit{raft consensus algorithm} to designate a "leader" or main instance. 
+
+\texttt{etcd} consists of three executables:
+
+\begin{enumerate}
+\item \texttt{etcd} - the program running the database itself.
+\item \texttt{etcdctl} - provides a command-line interface for querying the database and handling admin tasks
+\item \texttt{etcdutl} - used for tasks that require operating directly on \texttt{etcd} data files, like migrating data between versions of \texttt{etcd}, restoring snapshots, defragmenting the database, and database validation
+\end{enumerate}
+
+\subsubsection{How Kubernetes stores data in \texttt{etcd}}
+
+Punoco.
+
+\texttt{/registry/}
+
+\texttt{/registry/namespaces}
+
+\texttt{/registry/namespaces/default}
+
+\subsubsection{Some useful \texttt{etcdctl} commands}
+
+\texttt{etcdctl backup}
+
+\texttt{etcdctl cluster-health}
+
+\texttt{etcdctl get} / \texttt{etcdctl put}
+
+\paragraph{Further reading}
+
+\begin{itemize}
+\item https://etcd.io/docs/v3.7/faq/
+\end{itemize}
+
+\end{document}
