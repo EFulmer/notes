@@ -71,12 +71,16 @@ You'll often see Kubernetes described as "the operating system of the cloud." Th
 
 Software suited for running on a cloud should be durable and largely agnostic to what computer it runs on, aside from fundamental incompatibilities on the level of x86 vs. ARM processor architectures, Linux vs. Windows vs. macOS, and so on. As operating systems provide convenient interfaces to the physical computer programs run on, they (ideally!) remove a programmer's need to know the specific CPU, RAM, and networking details of the machine their code runs on. Kubernetes does the same one level up -- abstracting away individual servers, nodes, regions, and storage types, handling concerns like application self-healing, upgrades and rollbacks, and storage on the programmer's behalf. This may not be a perfect analogy, but none is. It is the springboard for understanding those \textit{hows} and \textit{whys}.
 
-Kubernetes was originally developed at Google, to make it easier for programmers to deploy and maintain programs at so-called "Google scale;" highly available, highly fault-tolerant systems. It is now owned and maintained by the Cloud Native Computing Foundation (CNCF). 
+Kubernetes was originally developed at Google, to make it easier for programmers to deploy and maintain programs at so-called "Google scale;" highly available, highly fault-tolerant systems. It is now owned and maintained by the Cloud Native Computing Foundation (CNCF). Before Kubernetes' release, containerization tools -- Docker being the most known -- 	
 
 % ============================================================
 \section{Components of a Kubernetes Cluster}
 
 A Kubernetes cluster consists of a \textbf{control plane node} (the "leader," "brain," or "head office" of the cluster) and one or more \textbf{worker nodes}. The control plane manages the desired state of the cluster; worker nodes run the actual workloads. Certain deployments, typically home lab or other sorts of non-production Kubernetes clusters, may run a single node which hosts both the control plane's components and runs workloads, but this is not advisable for production.
+
+\subsection{API Server}
+
+Coming soon!
 
 \subsection{\texttt{etcd}}
 
@@ -96,26 +100,53 @@ High-availability Kubernetes servers may want to run multiple \texttt{etcd} inst
 
 \subsubsection{How Kubernetes stores data in \texttt{etcd}}
 
-Punoco.
+\texttt{etcd} is a key-value database. Possible values for keys are seemingly pretty free-form, but Kubernetes uses a Linux path-like format for them. All keys start with \texttt{/registry/}, followed by the resource type, the namespace (if the object is namespaced), then the resource's name.
 
-\texttt{/registry/}
+For example, the default namespace's definition is at \texttt{/registry/namespaces/default/}, and namespaced objects like Pods will live at, e.g. \texttt{/registry/pods/myAppNS/apiPod/}.
 
-\texttt{/registry/namespaces}
+\subsubsection{Using \texttt{etcdctl}}
 
-\texttt{/registry/namespaces/default}
+In most setups, \texttt{etcdctl} will require you to specify the API version, the endpoint and port the database server is listening at, and the certificate info. For a concrete example, if you're running a cluster locally using Docker Desktop, from within the Pod running \texttt{etcd}, your \texttt{etcdctl} commands may look something like
 
-\subsubsection{Some useful \texttt{etcdctl} commands}
+\begin{lstlisting}
+ETCDCTL_API=3 etcdctl get /registry/namespaces/default \
+  --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key
+\end{lstlisting}
 
-\texttt{etcdctl backup}
+The values for the Kubernetes objects are stored in Protobuf format, so while this command should run successfully (at least on a cluster created by Docker Desktop), the output will not be human-readable. There are multiple ways to turn the Protobuf data into more readable formats, but the primary one is, of course, the Kubernetes API.
 
-\texttt{etcdctl cluster-health}
+\subsubsection{Commands and Flags}
+Here are some \texttt{etcdctl} commands and flags worth knowing:
 
-\texttt{etcdctl get} / \texttt{etcdctl put}
+\begin{itemize}
+\item \texttt{etcdctl get|put|del} - see, set, or delete entries.
+\item \texttt{etcdctl get --prefix} - get all items whose key starts with the given prefix.
+\item \texttt{etcdctl get --keys-only} - get only the key, not the value, if it exists. Useful in conjunction with \texttt{--prefix} to get every object of a specific type, in a specific namespace, or both.
+\end{itemize}
 
 \paragraph{Further reading}
 
 \begin{itemize}
-\item https://etcd.io/docs/v3.7/faq/
+\item https://etcd.io/docs/v3.6/
 \end{itemize}
+
+\subsection{Controller Manager}
+
+Coming soon!
+
+\subsection{Scheduler}
+
+Coming soon!
+
+\subsection{Kubelet}
+
+Coming soon!
+
+\subsection{Kube-Proxy}
+
+Coming soon!
 
 \end{document}
