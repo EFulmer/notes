@@ -123,8 +123,8 @@ Here are some \texttt{etcdctl} commands and flags worth knowing:
 
 \begin{itemize}
 \item \texttt{etcdctl get|put|del} - see, set, or delete entries.
-\item \texttt{etcdctl get --prefix} - get all items whose key starts with the given prefix.
-\item \texttt{etcdctl get --keys-only} - get only the key, not the value, if it exists. Useful in conjunction with \texttt{--prefix} to get every object of a specific type, in a specific namespace, or both.
+\item \texttt{etcdctl get {-}{-}prefix} - get all items whose key starts with the given prefix.
+\item \texttt{etcdctl get {-}{-}keys-only} - get only the key, not the value, if it exists. Useful in conjunction with \texttt{{-}{-}prefix} to get every object of a specific type, in a specific namespace, or both.
 \end{itemize}
 
 \paragraph{Further reading}
