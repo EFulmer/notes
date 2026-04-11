@@ -23,7 +23,7 @@
     urlcolor   = blue!60!black,
     citecolor  = green!50!black,
     pdftitle   = {Kubernetes Notes},
-    pdfauthor  = {},
+    pdfauthor  = {Eric R. Fulmer},
 }
 
 % --- listings setup (for YAML / shell snippets) ---
@@ -71,12 +71,12 @@ You'll often see Kubernetes described as "the operating system of the cloud." Th
 
 Software suited for running on a cloud should be durable and largely agnostic to what computer it runs on, aside from fundamental incompatibilities on the level of x86 vs. ARM processor architectures, Linux vs. Windows vs. macOS, and so on. As operating systems provide convenient interfaces to the physical computer programs run on, they (ideally!) remove a programmer's need to know the specific CPU, RAM, and networking details of the machine their code runs on. Kubernetes does the same one level up -- abstracting away individual servers, nodes, regions, and storage types, handling concerns like application self-healing, upgrades and rollbacks, and storage on the programmer's behalf. This may not be a perfect analogy, but none is. It is the springboard for understanding those \textit{hows} and \textit{whys}.
 
-Kubernetes was originally developed at Google, to make it easier for programmers to deploy and maintain programs at so-called "Google scale;" highly available, highly fault-tolerant systems. It is now owned and maintained by the Cloud Native Computing Foundation (CNCF). Before Kubernetes' release, containerization tools -- Docker being the most known -- 	
+Kubernetes was originally developed at Google, to make it easier for programmers to deploy and maintain programs at so-called "Google scale;" highly available, highly fault-tolerant systems. It is now owned and maintained by the Cloud Native Computing Foundation (CNCF). Before Kubernetes' release, containerization tools -- Docker being the most known -- were gaining notice and popularity for deploying industry applications. Docker handles a lot of the repeated complexities of deploying applications; packaging up everything you need to run the application, with a smaller footprint than a VM. However, Docker and Podman are \textit{containerization} tools. Their purpose is to set up a lightweight-but-isolated environment to run an application in. Things like application auto-healing and rollouts are not in scope for those programs. While Docker provides related tools for some of these, specifically Docker Compose and Docker Swarm, a solution more suitable for production deployments was still needed. Enter Kubernetes. 
 
 % ============================================================
 \section{Components of a Kubernetes Cluster}
 
-A Kubernetes cluster consists of a \textbf{control plane node} (the "leader," "brain," or "head office" of the cluster) and one or more \textbf{worker nodes}. The control plane manages the desired state of the cluster; worker nodes run the actual workloads. Certain deployments, typically home lab or other sorts of non-production Kubernetes clusters, may run a single node which hosts both the control plane's components and runs workloads, but this is not advisable for production.
+A Kubernetes cluster consists of a \textbf{control plane node} (the "leader," "brain," or "main office" of the cluster) and one or more \textbf{worker nodes}. The control plane manages the desired state of the cluster; worker nodes run the actual workloads. Certain deployments, typically home lab or other sorts of non-production Kubernetes clusters, may run a single node which hosts both the control plane's components and runs workloads, but this is not advisable for production.
 
 \subsection{API Server}
 
@@ -116,7 +116,9 @@ ETCDCTL_API=3 etcdctl get /registry/namespaces/default \
   --key=/etc/kubernetes/pki/etcd/server.key
 \end{lstlisting}
 
-The values for the Kubernetes objects are stored in Protobuf format, so while this command should run successfully (at least on a cluster created by Docker Desktop), the output will not be human-readable. There are multiple ways to turn the Protobuf data into more readable formats, but the primary one is, of course, the Kubernetes API.
+The values for the Kubernetes objects are stored in Protobuf format, so while this command should run successfully (at least on a cluster created by Docker Desktop), the output will not be human-readable. There are multiple ways to turn the Protobuf data into more readable formats, but the primary one is, of course, the Kubernetes API. 
+
+To view the values in a human-readable form without leaving \texttt{etcdctl}, pass the \texttt{-w} flag (for "write," as in, write out to your terminal/display). Options include \texttt{fields}, \texttt{simple}, and \texttt{json}. \texttt{fields} and \texttt{json} will render the values for individual keys in a human-readable format, in my experience.
 
 \subsubsection{Commands and Flags}
 Here are some \texttt{etcdctl} commands and flags worth knowing:
@@ -135,15 +137,53 @@ Here are some \texttt{etcdctl} commands and flags worth knowing:
 
 \subsection{Controller Manager}
 
-Coming soon!
+The \textit{controller manager} is a daemon that manages controllers. This implies a very obvious question -- what is a controller? Controllers programs that monitor the cluster (through the API server, Kubelet, or both?) to it to reconcile the desired and actual state of your cluster. Each controller manages a type or type of objects 
+
+Additional controllers for Custom Resource Definitions (CRDs) can be added. 
 
 \subsection{Scheduler}
 
 Coming soon!
 
+\subsection{Container Runtime}
+
+Every Node, worker or Control Plane, must have at least one \textit{container runtime} installed on it. Container runtimes, such as Docker Engine, handle the crucial job of actually running containers. While Docker Engine is the most well-known, it can be heavyweight for some deployments. Other runtimes include containerd, CRI-O, and Mirantis Container Runtime, which is a commercially available runtime.
+
+All container runtimes should be compatible with the Container Runtime Interface (CRI), which is an interface or protocol for a uniform method of communication between the kubelet and container runtime. 
+
+CLI applications to interact with runtimes include \texttt{ctr}, \texttt{nerdctl}, and \texttt{crictl}. \texttt{crictl} is used for debugging purposes, \texttt{nerdctl} is a general-purpose Docker-like CLI application specifically for containerd, and \texttt{crictl} is another debugging-focused tool for all CRI-compatible runtimes, associated with Kubernetes.
+
+Each of these applications connects to Unix sockets suck as:
+
+\begin{itemize}
+\item \texttt{unix:///var/run/dockershim.sock}
+\item \texttt{unix:///var/run/containerd/containerd.sock}
+\item \texttt{unix:///var/run/crio/crio.sock}
+\item \texttt{unix:///var/run/cri-dockerd.sock}
+\end{itemize}
+
 \subsection{Kubelet}
 
-Coming soon!
+The kubelet is an application that runs on each Node, with three major responsibilities:
+
+\begin{enumerate}
+\item registering the Node with the Control Plane upon Node start-up
+\item managing communication between the Node and the Control Plane
+\item managing Pods so that the container runtime can run their constituent containers, by doing things like:
+	\begin{enumerate}
+	\item mounting Volumes, ConfigMaps, Secrets
+	\item running liveness and readiness probes, to monitor Pod health
+	\item checking they respect any resource limits defined for them
+	\end{enumerate}
+\end{enumerate}
+
+The kubelet communicates with the Control Plane primarily through the API Server, watching for any updates to PodSpecs (the specification component of a Pod manifest) scheduled to its specific Node. It also posts updates back to the API Server about the \textit{actual state} of those \textit{desired resources}.
+
+The kubelet also runs its own small HTTPS API, through which it proxies requests that operate on the container-level, like \texttt{kubectl logs} and \texttt{kubectl exec}.
+
+Aside from changes to the cluster state requested through \texttt{kubectl}, which are assigned to a Node by the scheduler and communicated to the kubelet via the API Server, the kubelet can also manage \textit{static Pods}. More on those later.
+
+The kubelet is typically run as a daemon with \texttt{systemctl}, since it cannot manage itself as a Pod.
 
 \subsection{Kube-Proxy}
 
