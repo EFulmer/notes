@@ -198,7 +198,7 @@ Coming soon!
 
 \subsection{Pods}
 
-The Pod is the minimal "unit of work" in Kubernetes. Pods are a wrapper around containers, managing the basics of provisioning and running containers. This includes things like volume mounting
+The Pod is the minimal "unit of work" in Kubernetes. Pods are a wrapper around containers, managing the basics of provisioning and running containers. This includes things like storage
 
 \subsubsection{}
 
@@ -305,14 +305,14 @@ With your Control Plane's new version of \texttt{kubeadm} installed, plan the up
 
 If you're running a high availability setup with multiple Control Plane nodes, you'll need to repeat the preceding with a few slight differences. Update the apt repository, but instead of \texttt{kubeadm upgrade apply}, run \texttt{kubeadm upgrade node}. Additionally, you don't need to upgrade the your CNI plugin again, since all CRDs, Deployments, etc., across the cluster are upgraded in one shot.
 
-Before upgrading the Kubelet and \texttt{kubectl}, drain the node and cordon it. Then temporarily unhold the packages for them to update to the same minor version you upgraded \texttt{kubeadm} to. Finally, use \texttt{systemctl} to restart the Kubelet:
+Before upgrading the Kubelet and \texttt{kubectl}, cordon the Node and drain it. Then temporarily unhold the packages for them to update to the same minor version you upgraded \texttt{kubeadm} to. Finally, use \texttt{systemctl} to restart the Kubelet:
 
 \begin{lstlisting}
 # Update the packages:
 sudo apt-mark unhold kubelet kubectl && \
 sudo apt-get update && \
 sudo apt-get install -y kubelet='1.36.3-1.1'  kubectl='1.36.3-1.1' && \
-sudo apt-mark hold kubelt kubectl
+sudo apt-mark hold kubelet kubectl
 # Restart the service:
 sudo systemctl daemon-reload
 sudo systemctl restart kubelet
@@ -324,7 +324,17 @@ After all this, you can uncordon the node.
 
 Each worker node should be cordoned and drained to avoid disrupting anything running on it.
 
-Once everything running on the Node has been moved, begin the upgrade process by upgrading \texttt{kubeadm} on it, running \texttt{sudo kubeadm upgrade node} and upgrading and rebooting \texttt{kubectl} and the Kubelet as you did on the Control Plane node(s).
+Once everything running on the Node has been moved, begin the upgrade process: 
+
+\begin{enumerate}
+\item Upgrade the Node's \texttt{kubeadm}.
+\item Run \texttt{sudo kubeadm upgrade node} to upgrade its' Kubelet's config,.
+\item Upgrade \texttt{kubectl} and the Kubelet.
+\item Restart the Kubelet service with \texttt{systemctl}).
+\item Uncordon the Node.
+\end{enumerate}
+
+For more detailed explanations for any of these steps, reference the Control Plane section.
 
 \subsubsection{Upgrading \texttt{etcd}}
 
