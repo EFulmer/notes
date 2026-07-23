@@ -198,9 +198,23 @@ Coming soon!
 
 \subsection{Pods}
 
-The Pod is the minimal "unit of work" in Kubernetes. Pods are a wrapper around containers, managing the basics of provisioning and running containers. This includes things like storage
+The Pod is the minimal "unit of work" in Kubernetes. Pods are a wrapper around containers, managing the basics of provisioning and running containers. This includes things like storage and networking. 
 
-\subsubsection{}
+\subsubsection{Multi-Container Pods}
+
+\subsubsection{Static Pods}
+
+\textit{Static Pods} are created directly on a desired Node by putting their manifest YAMLs in a dedicated path on the Node{-}{-}so without \texttt{kubectl create}, \texttt{apply}, or \texttt{run}. The Node's Kubelet will always automatically restart a static Pod if it crashes. Because static Pods are defined locally on the Node rather than through interacting with the API server, their existence is independent of it and the scheduler, making them resilient to any errors with those Control Plane components.
+
+The standard path for static Pod manifests is \texttt{/etc/kubernetes/manifests/}; however, this can be set to whatever you like using either the \texttt{--pod-manifest-path} flag passed to the Kubelet, or in the Kubelet's config file as \texttt{staticPodPath}. The standard path for the Kubelet config file is \texttt{/var/lib/kubelet/config.yaml}, but you can always \texttt{ps aux | grep kubelet} for it. 
+
+The Kubelet watches both the static Pod path and the API server. If a Pod is created via putting a manifest in the static Pod path, the static Pod is reported to the API server, has its Node's name appended to the name set in the manifest, and cannot be deleted through things like \texttt{kubectl} or the Kubernetes HTTP API.
+
+One use case for static Pods is creating Pod manifests for each Control Plane component, and storing them in a Node's static Pod path. This is, in fact, how \texttt{kubeadm} sets up and manages clusters.
+
+It is also worth noting that both static Pods and DaemonSets are ignored by the scheduler. For DaemonSets, each Node has an instance of the Pod. DaemonSets are elucidated upon in their dedicated section. 
+
+\subsubsection{Manifests}
 
 \subsection{Namespaces}
 
@@ -246,6 +260,9 @@ COPY . /app
 \end{lstlisting}
 
 The \texttt{COPY} commands define a new layer with the files from the host filesystem in the desired directory of the image's filesystem. The \texttt{RUN} commands execute their arguments and create a new layer storing the changes those commands made--in this example, those being to the Python installation in the image's filesystem, including changes to the system Python in the image, the \texttt{site-packages} directory which stores third-party libraries installed by \texttt{pip}, and so on.
+
+% ============================================================
+\section{\texttt{Kubectl}}
 
 % ============================================================
 \section{Cookbook}
@@ -303,7 +320,7 @@ With your Control Plane's new version of \texttt{kubeadm} installed, plan the up
 [upgrade/kubelet] Now that your control plane is upgraded, please proceed with upgrading your kubelets if you haven't already done so.
 \end{lstlisting}
 
-If you're running a high availability setup with multiple Control Plane nodes, you'll need to repeat the preceding with a few slight differences. Update the apt repository, but instead of \texttt{kubeadm upgrade apply}, run \texttt{kubeadm upgrade node}. Additionally, you don't need to upgrade the your CNI plugin again, since all CRDs, Deployments, etc., across the cluster are upgraded in one shot.
+If you're running a high availability setup with multiple Control Plane nodes, you'll need to repeat the preceding with a few slight differences. Update the apt repository, but instead of \texttt{kubeadm upgrade apply}, run \texttt{kubeadm upgrade node}. Additionally, you don't need to upgrade the CNI plugin again, since all CRDs, Deployments, etc., across the cluster are upgraded in one shot.
 
 Before upgrading the Kubelet and \texttt{kubectl}, cordon the Node and drain it. Then temporarily unhold the packages for them to update to the same minor version you upgraded \texttt{kubeadm} to. Finally, use \texttt{systemctl} to restart the Kubelet:
 
