@@ -137,13 +137,13 @@ Here are some \texttt{etcdctl} commands and flags worth knowing:
 
 \subsection{Controller Manager}
 
-The \textit{controller manager} is a daemon that manages controllers. This implies a very obvious question -- what is a controller? Controllers programs that monitor the cluster (through the API server, Kubelet, or both?) to it to reconcile the desired and actual state of your cluster. Each controller manages a type or type of objects 
+The \textit{controller manager} is a daemon that manages controllers. This implies a very obvious question -- what is a controller? Controllers programs that monitor the cluster (through the API server, Kubelet, or both?) to it to reconcile the desired and actual state of your cluster. Each controller manages a type or type of objects. For example, the \textit{Node manager} checks each Node's health every five seconds. If a Node goes down, with a grace period of forty seconds, the Node manager recreates its' Pods on another node. 
 
 Additional controllers for Custom Resource Definitions (CRDs) can be added. 
 
 \subsection{Scheduler}
 
-Coming soon!
+The \textit{scheduler} is the service that exposes
 
 \subsection{Container Runtime}
 
@@ -161,6 +161,10 @@ Each of these applications connects to Unix sockets suck as:
 \item \texttt{unix:///var/run/crio/crio.sock}
 \item \texttt{unix:///var/run/cri-dockerd.sock}
 \end{itemize}
+
+\subsubsection{Common Container Runtime Commands}
+
+Coming soon!
 
 \subsection{Kubelet}
 
@@ -188,5 +192,148 @@ The kubelet is typically run as a daemon with \texttt{systemctl}, since it canno
 \subsection{Kube-Proxy}
 
 Coming soon!
+
+% ============================================================
+\section{Objects in Kubernetes}
+
+\subsection{Pods}
+
+The Pod is the minimal "unit of work" in Kubernetes. Pods are a wrapper around containers, managing the basics of provisioning and running containers. This includes things like volume mounting
+
+\subsubsection{}
+
+\subsection{Namespaces}
+
+The Namespace is the simplest way to manage resource and workflow isolation in a Kubernetes cluster. All Kubernetes object types are either "namespaced" or not; this determines whether they are visible across the entire cluster or only to objects in their Namespace. Objects like ConfigMaps, Pods (and anything that has Pods, like Deployments, Jobs, and CronJobs), and Secrets are namespaced. Meanwhile Nodes and Volumes are not namespaced. A solid rule of thumb is that objects that correspond closely to to either physical hardware or cluster-wide information are probably not namespaced; however you can always check whether an object type is namespaced by running \texttt{kubectl api-resources} to get a list of all object types available to the cluster of your current context.
+
+On cluster startup, Kubernetes creates three Namespaces:
+
+\begin{itemize}
+\item \texttt{default}
+\item \texttt{kube-system}
+\item \texttt{kube-public}
+\end{itemize}
+
+\subsection{Deployments}
+
+... ReplicaSets and ReplicationControllers 
+
+\subsection{DaemonSets}
+
+\subsection{Services}
+
+% ============================================================
+\section{Storage}
+
+Kubernetes, as with all container tools, works with a stateless paradigm. Pods (and therefore implicitly containers) should be edited sparingly, because the purpose of Kubernetes is to deploy, scale, and self-heal applications without need tor additional setup beyond the cluster existing. But state is needed. There are many obvious uses for state--mutating the state of the file system with logs, the contents of a database, etc.--and using Kubernetes does not remove the need to manage that state.
+
+Kubernetes has tools for handling state. This section discusses how containers handle state, how to define, manage, and persist state for applications deployed in Kubernetes, and how to integrate with cloud storage providers like Amazon's S3. 
+
+\subsection{Images, Containers and State}
+
+Each line or command in a Dockerfile adds a new \textit{layer} to the image. Each layer is a specific change to the filesystem defined by the layer created by the last line. 
+
+For an example from one of my own Dockerfiles:
+
+\begin{lstlisting}
+COPY pyproject.toml poetry.lock /app
+RUN pip install --upgrade pip && \
+    pip install poetry && \
+    poetry config virtualenvs.create false && \
+    poetry install --no-root
+
+COPY . /app
+\end{lstlisting}
+
+The \texttt{COPY} commands define a new layer with the files from the host filesystem in the desired directory of the image's filesystem. The \texttt{RUN} commands execute their arguments and create a new layer storing the changes those commands made--in this example, those being to the Python installation in the image's filesystem, including changes to the system Python in the image, the \texttt{site-packages} directory which stores third-party libraries installed by \texttt{pip}, and so on.
+
+% ============================================================
+\section{Cookbook}
+
+This section contains tips and guides on how to handle common tasks related to maintaining Kubernetes clusters or managing workloads deployed on them.
+
+\subsection{Upgrading a Cluster}
+
+These instructions are primarily for Debian-based distros using \texttt{apt}.
+
+\subsubsection{Clusters Provisioned with \texttt{kubeadm}}
+
+We can break upgrading a \texttt{kubeadm} cluster into two parts: upgrading the Control Plane node(s) and upgrading the workers. 
+
+\paragraph{Control Plane}\mbox{}
+
+You first need to check which package repository your OS is using; there is a separate repository for every minor version of Kubernetes. Ensure it's set to the minor release of Kubernetes you want to use. 
+
+On Debian and Ubuntu, this is stored at \texttt{/etc/apt/sources.list.d/kubernetes.list}.
+
+On RHEL, Fedora, and CentOS, it should be located at \texttt{/etc/yum.repos.d/kubernetes.repo}.
+
+Regardless of your distro, in the file, the package repo URL should match a pattern similar to:
+
+\begin{lstlisting}
+https://pkgs.k8s.io/core:/stable:/v1.36
+\end{lstlisting}
+
+Change the version to the minor version you're upgrading to. 
+
+Once the package repo is updated, instruct the package manager to update its package database with an \texttt{apt update} and then identify the specific patch version you wish to upgrade to with \texttt{apt-cache madison kubeadm}. \texttt{apt-cache madison} searches the local \texttt{apt} cache for packages matching the and prints info about them to stdout. Following is the output I got from \texttt{sudo apt-cache madison kubeadm}:
+
+\begin{lstlisting}
+kubeadm | 1.36.3-1.1 | https://pkgs.k8s.io/core:/stable:/v1.36/deb  Packages
+kubeadm | 1.36.2-2.1 | https://pkgs.k8s.io/core:/stable:/v1.36/deb  Packages
+kubeadm | 1.36.1-1.1 | https://pkgs.k8s.io/core:/stable:/v1.36/deb  Packages
+kubeadm | 1.36.0-1.1 | https://pkgs.k8s.io/core:/stable:/v1.36/deb  Packages
+\end{lstlisting}
+
+Temporarily unhold the Control Plane's \texttt{kubeadm}, update it to your desired new version, and verify:
+
+\begin{lstlisting}
+sudo apt-mark unhold kubeadm && \
+sudo apt-get update && \
+sudo apt-get install -y kubeadm='1.36.3-1.1' && \
+sudo apt-mark hold kubeadm
+kubeadm version
+\end{lstlisting}
+
+With your Control Plane's new version of \texttt{kubeadm} installed, plan the upgrade with \texttt{sudo kubeadm upgrade plan}. If all is well, run the upgrade: \texttt{sudo kubeadm upgrade apply v1.36.3}. The success message will look like this:
+
+\begin{lstlisting}
+[upgrade/successful] SUCCESS! Your cluster was upgraded to "v1.36.3". Enjoy!
+
+[upgrade/kubelet] Now that your control plane is upgraded, please proceed with upgrading your kubelets if you haven't already done so.
+\end{lstlisting}
+
+If you're running a high availability setup with multiple Control Plane nodes, you'll need to repeat the preceding with a few slight differences. Update the apt repository, but instead of \texttt{kubeadm upgrade apply}, run \texttt{kubeadm upgrade node}. Additionally, you don't need to upgrade the your CNI plugin again, since all CRDs, Deployments, etc., across the cluster are upgraded in one shot.
+
+Before upgrading the Kubelet and \texttt{kubectl}, drain the node and cordon it. Then temporarily unhold the packages for them to update to the same minor version you upgraded \texttt{kubeadm} to. Finally, use \texttt{systemctl} to restart the Kubelet:
+
+\begin{lstlisting}
+# Update the packages:
+sudo apt-mark unhold kubelet kubectl && \
+sudo apt-get update && \
+sudo apt-get install -y kubelet='1.36.3-1.1'  kubectl='1.36.3-1.1' && \
+sudo apt-mark hold kubelt kubectl
+# Restart the service:
+sudo systemctl daemon-reload
+sudo systemctl restart kubelet
+\end{lstlisting}
+
+After all this, you can uncordon the node.
+
+\paragraph{Workers}\mbox{}
+
+Each worker node should be cordoned and drained to avoid disrupting anything running on it.
+
+Once everything running on the Node has been moved, begin the upgrade process by upgrading \texttt{kubeadm} on it, running \texttt{sudo kubeadm upgrade node} and upgrading and rebooting \texttt{kubectl} and the Kubelet as you did on the Control Plane node(s).
+
+\subsubsection{Upgrading \texttt{etcd}}
+
+\subsection{Backing up and restoring \texttt{etcd}}
+
+\subsubsection{Backing up \texttt{etcd}}
+
+\subsubsection{Restoring an \texttt{etcd} backup}
+
+\subsection{Dealing with IP address exhaustion}
 
 \end{document}
