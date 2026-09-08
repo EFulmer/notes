@@ -71,16 +71,26 @@ You'll often see Kubernetes described as "the operating system of the cloud." Th
 
 Software suited for running on a cloud should be durable and largely agnostic to what computer it runs on, aside from fundamental incompatibilities on the level of x86 vs. ARM processor architectures, Linux vs. Windows vs. macOS, and so on. As operating systems provide convenient interfaces to the physical computer programs run on, they (ideally!) remove a programmer's need to know the specific CPU, RAM, and networking details of the machine their code runs on. Kubernetes does the same one level up -- abstracting away individual servers, nodes, regions, and storage types, handling concerns like application self-healing, upgrades and rollbacks, and storage on the programmer's behalf. This may not be a perfect analogy, but none is. It is the springboard for understanding those \textit{hows} and \textit{whys}.
 
-Kubernetes was originally developed at Google, to make it easier for programmers to deploy and maintain programs at so-called "Google scale;" highly available, highly fault-tolerant systems. It is now owned and maintained by the Cloud Native Computing Foundation (CNCF). Before Kubernetes' release, containerization tools -- Docker being the most known -- were gaining notice and popularity for deploying industry applications. Docker handles a lot of the repeated complexities of deploying applications; packaging up everything you need to run the application, with a smaller footprint than a VM. However, Docker and Podman are \textit{containerization} tools. Their purpose is to set up a lightweight-but-isolated environment to run an application in. Things like application auto-healing and rollouts are not in scope for those programs. While Docker provides related tools for some of these, specifically Docker Compose and Docker Swarm, a solution more suitable for production deployments was still needed. Enter Kubernetes. 
+Kubernetes was originally developed at Google, to make it easier for programmers to deploy and maintain programs at so-called "Google scale;" highly available, highly fault-tolerant systems. It is now owned and maintained by the Cloud Native Computing Foundation (CNCF). Before Kubernetes' release, containerization tools -- Docker being the most known -- were gaining notice and popularity for deploying industry applications. Docker handles a lot of the repeated complexities of deploying applications; packaging up everything you need to run the application, with a smaller footprint than a VM. However, Docker and Podman are \textit{containerization} tools. Their purpose is to set up a lightweight-but-isolated environment to run an application in. Things like application auto-healing and rollouts are not in scope for those programs. While Docker provides related tools for some of these, specifically Docker Compose and Docker Swarm, a solution more suitable for production deployments was still needed. Enter Kubernetes.
+
+As well, since Docker is a commercial product, the Open Container Initiative was established; an organization to establish and govern open standards for containerization technologies.  
 
 % ============================================================
 \section{Components of a Kubernetes Cluster}
 
-A Kubernetes cluster consists of a \textbf{control plane node} (the "leader," "brain," or "main office" of the cluster) and one or more \textbf{worker nodes}. The control plane manages the desired state of the cluster; worker nodes run the actual workloads. Certain deployments, typically home lab or other sorts of non-production Kubernetes clusters, may run a single node which hosts both the control plane's components and runs workloads, but this is not advisable for production.
+A Kubernetes cluster consists of a \textit{control plane node} (the "leader," "brain," or "main office" of the cluster) and one or more \textit{worker nodes}. The control plane manages the desired state of the cluster; worker nodes run the actual workloads. Smaller, lower-stakes deployments like home labs or other sorts of non-production Kubernetes clusters, may run a single node which hosts both the control plane's components and runs workloads, but this isn't suitable for production use. Conversely, high availability setups may run multiple instances of some or all of the Control Plane components for redundancy.
 
 \subsection{API Server}
 
-Coming soon!
+\textem{This section is a work in progress!}
+
+The API server exposes the Kubernetes API, which is the way for external services to communicate with the cluster. The API is served over HTTPS; all \texttt{kubectl} commands are essentially wrappers around it, handling authentication, resource selection, and basically everything aside from sending and receiving the requests and responses itself.
+
+\subsubsection{More details on the API Server}
+
+\textem{This section is a work in progress!}
+
+Endpoints follow the format of \texttt{apis/{version}/{api}/...}
 
 \subsection{\texttt{etcd}}
 
@@ -198,7 +208,11 @@ Coming soon!
 
 \subsection{Pods}
 
-The Pod is the minimal "unit of work" in Kubernetes. Pods are a wrapper around containers, managing the basics of provisioning and running containers. This includes things like storage and networking. 
+The Pod is the minimal "unit of work" in Kubernetes. Pods are a wrapper around containers, managing the basics of provisioning and running containers. This includes things like storage and networking.
+
+A Pod can have multiple containers. The typical patterns for multi-container Pods are \textit{init containers}, where a container does some preliminary work before the actual computational work the Pod is intended for, like waiting for a database or some other external dependency to become available. \textit{Sidecar containers} run alongside the container that executes the primary work. An example use case for sidecar containers is a static site that renders and serves Markdown files in a Git repo. The sidecar pod can routinely fetch the latest Markdowns from Git and save developers from having to implement that desired behavior interleaved with the rest of the static site's code. 
+
+While Pods are a crucial "primitive" in Kubernetes, much of the magic, like smart horizontal and vertical scaling, or automatically restarting crashed Pods, uses other objects like Deployments and Services that operate on Pods via \textit{selectors}{-}{-}more on them in their dedicated sections.  
 
 \subsubsection{Multi-Container Pods}
 
@@ -215,6 +229,17 @@ One use case for static Pods is creating Pod manifests for each Control Plane co
 It is also worth noting that both static Pods and DaemonSets are ignored by the scheduler. For DaemonSets, each Node has an instance of the Pod. DaemonSets are elucidated upon in their dedicated section. 
 
 \subsubsection{Manifests}
+
+\textit{Manifests} are YAML files defining a Kubernetes resource. A Pod's manifest looks something like:
+
+\begin{lstlisting}
+apiVersion: v1
+kind: Pod
+metadata:
+	# defined later
+spec:
+	# defined later
+\end{lstlisting}
 
 \subsection{Namespaces}
 
@@ -234,7 +259,11 @@ On cluster startup, Kubernetes creates three Namespaces:
 
 \subsection{DaemonSets}
 
+A DaemonSet runs exactly one Pod on each Node of a cluster.
+
 \subsection{Services}
+
+Services handle networking in Kubernetes.
 
 % ============================================================
 \section{Storage}
@@ -261,13 +290,52 @@ COPY . /app
 
 The \texttt{COPY} commands define a new layer with the files from the host filesystem in the desired directory of the image's filesystem. The \texttt{RUN} commands execute their arguments and create a new layer storing the changes those commands made--in this example, those being to the Python installation in the image's filesystem, including changes to the system Python in the image, the \texttt{site-packages} directory which stores third-party libraries installed by \texttt{pip}, and so on.
 
+\subsection{Volumes}
+
+WIP.
+
+Volume types include images, Secrets, ConfigMaps, and
+
+\subsubsection{Secrets}
+
+\subsubsection{ConfigMaps}
+
+\subsubsection{Images as Volumes}
+
+You can mount an OCI compatible image as a read-only Volume in a Pod. For an example:
+
+\begin{lstlisting}
+# ... Assume the rest of a valid Pod manifest is included ...
+  volumes:
+    - name: volume
+      image:
+        reference: registry.iximiuz.com/welcome-page:v1
+        pullPolicy: IfNotPresent
+\end{lstlisting}
+
 % ============================================================
 \section{\texttt{Kubectl}}
+
+\texttt{kubectl} is the primary method for interacting with a Kubernetes cluster.
+
+\subsection{Imperatively Working with \texttt{kubectl}}
+
+\subsection{Declaratively Working with \texttt{kubectl}}
+
+\subsection{JSON Path}
+
+% ============================================================
+\section{Kustomize}
+
+% ============================================================
+\section{Helm}
 
 % ============================================================
 \section{Cookbook}
 
-This section contains tips and guides on how to handle common tasks related to maintaining Kubernetes clusters or managing workloads deployed on them.
+This section contains tips and guides on how to handle common tasks related to maintaining Kubernetes clusters, and managing and debugging workloads deployed on them.
+
+\subsection{Shelling into a Pod}
 
 \subsection{Upgrading a Cluster}
 
